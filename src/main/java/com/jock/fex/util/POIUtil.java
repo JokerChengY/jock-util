@@ -2,24 +2,21 @@ package com.jock.fex.util;
 
 import org.apache.commons.beanutils.PropertyUtils;
 import org.apache.poi.hssf.usermodel.*;
-import org.apache.poi.ss.usermodel.HorizontalAlignment;
+import org.apache.poi.ss.util.CellRangeAddress;
 import org.springframework.util.CollectionUtils;
 
 import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.lang.reflect.Method;
+import java.math.BigDecimal;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
-/**
- * 2019年2月28日<br>
- * Excel导出工具类
- *
- * @author 0
- */
 public class POIUtil {
+    //创建工作本   TOS
+    public static HSSFWorkbook demoWorkBook = new HSSFWorkbook();
 
     /**
      * 设置表头
@@ -32,7 +29,7 @@ public class POIUtil {
         if (title != null && title.length > 0) {
             // 创建居中样式
             final HSSFCellStyle style = wb.createCellStyle();
-            style.setAlignment(HorizontalAlignment.CENTER);
+            style.setAlignment(HSSFCellStyle.VERTICAL_CENTER);
 
             int cellNum = 0;
             HSSFCell cell = null;
@@ -130,45 +127,17 @@ public class POIUtil {
             }
 
             // 设置列宽
-            autoSizeColumn(sheet, 0, exportField.length);
-        }
-    }
-
-    /**
-     * 处理map集合
-     * @param sheet
-     * @param data
-     * @param exportField
-     * @param rowNum
-     */
-    public final static void writeSheet( List<Map<String, Object>> data, String[] exportField, int rowNum,HSSFSheet sheet) {
-        if (!CollectionUtils.isEmpty(data) && exportField != null && exportField.length > 0) {
-            // 写数据
-            HSSFRow row = null;
-            HSSFCell cell = null;
-
-            for (Map<String, Object> m : data) {
-
-                // 写数据到Excel，逐行写
-                row = sheet.createRow(rowNum);
-                rowNum++;
-                int i = 0;
-                for (String valStr : exportField) {
-                    cell = row.createCell(i);
-                    cell.setCellValue(StringUtils.ifNull(m.get(valStr)));
-                    i++;
-                }
+            for (int i = 0; i < exportField.length; i++) {
+                sheet.autoSizeColumn((short) i);
             }
-
-            // 设置列宽
-            autoSizeColumn(sheet, 0, exportField.length);
         }
     }
 
     /**
      * 设置与表头对应的值 list sql查询出的数据 sheet 工作薄 valueMap 与表头对应的字段
      */
-    public final static void setTitleValuesByObj(List<?> objList, HSSFSheet sheet, String[] values, int rowNum) {
+    public final static void setTitleValuesByObj(List<?> objList, HSSFSheet sheet, String[] values, int rowNum,
+                                                 Integer dateForm) {
         if (!CollectionUtils.isEmpty(objList) && values != null && values.length > 0) {
             HSSFRow row = null;
             HSSFCell cell = null;
@@ -188,7 +157,7 @@ public class POIUtil {
                     }
                     if (o != null) {
                         if (o instanceof Date) {
-                            cell.setCellValue(MyDateUtil.getDateTime((Date) o, 13));
+                            cell.setCellValue(MyDateUtil.getDateTime((Date) o, dateForm == null ? 13 : dateForm));
                         } else {
                             cell.setCellValue(StringUtils.ifNull(o));
                         }
@@ -211,6 +180,8 @@ public class POIUtil {
     public final static void excelDownload(HttpServletResponse response, HSSFWorkbook wb, String fileName) {
         BufferedInputStream bis = null;
         BufferedOutputStream bos = null;
+
+
         try {
             // Excel写入输出流
             final ByteArrayOutputStream os = new ByteArrayOutputStream();
@@ -260,7 +231,7 @@ public class POIUtil {
      * @return
      */
     @SuppressWarnings({"rawtypes", "unchecked"})
-    public final static Method getGetMethod(Class obj, String key, String getSet) {
+    public static Method getGetMethod(Class obj, String key, String getSet) {
         StringBuffer sb = new StringBuffer();
         sb.append(getSet).append(key.substring(0, 1).toUpperCase()).append(key.substring(1));
         try {
@@ -278,133 +249,161 @@ public class POIUtil {
      * @param sheetname  表名
      * @param title      抬头名
      * @param values     数据名
-     *                   POIUtil.getHSSFWorkbook(ExamMessageTrans.examMessagesList(examMessages),"中介报名考试信息",title,values)
      * @return
      */
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    public final static HSSFWorkbook getHSSFWorkbook(List exportList, String sheetname, String[] title,
-                                                     String[] values) {
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public static HSSFWorkbook getHSSFWorkbook(List exportList, String sheetname, String[] title, String[] values) {
         // 导出
         // 声明一个工作薄
         final HSSFWorkbook wb = new HSSFWorkbook();
         // 创建一个sheet并命名
         final HSSFSheet sheet = wb.createSheet(sheetname);
         // 默认列宽
-        sheet.setDefaultColumnWidth(200);
+        sheet.setDefaultColumnWidth(20);
 
         int rowNum = 0;
         final HSSFRow row = sheet.createRow(rowNum);
         rowNum++;
         POIUtil.setTitle(wb, row, title);
-        POIUtil.setTitleValues(exportList, sheet, values, rowNum);
+        POIUtil.setTitleValuesByObjWb(wb, exportList, sheet, values, rowNum, 3);
 
         return wb;
     }
 
     /**
-     * 2019年2月28日<br>
-     * 针对模板文件写数据
+     * HSSFWorkbook 抽出
      *
-     * @param sheet
-     * @param data
-     * @param exportField 字段名
-     * @param rowStart    起始行
-     * @param cellStart   起始列
+     * @param exportList 查询到的数据
+     * @param sheetname  表名
+     * @param title      抬头名
+     * @param values     数据名
+     * @return
      */
-    public final static void writeSheet(HSSFSheet sheet, List<?> data, String[] exportField, int rowStart,
-                                        int cellStart) {
-        if (!CollectionUtils.isEmpty(data) && exportField != null && exportField.length > 0) {
-            // 写数据
-            HSSFRow row = null;
-            HSSFCell cell = null;
-            for (Object o : data) {
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public static HSSFWorkbook getHSSFWorkbookByObj(List exportList, String sheetname, String[] title,
+                                                    String[] values) {
+        // 导出
+        // 声明一个工作薄
+        final HSSFWorkbook wb = new HSSFWorkbook();
+        // 创建一个sheet并命名
+        final HSSFSheet sheet = wb.createSheet(sheetname);
+        // 默认列宽
+        sheet.setDefaultColumnWidth(20);
 
-                // 写数据到Excel，逐行写
-                if ((row = sheet.getRow(rowStart)) == null) {
-                    continue;
-                }
+        int rowNum = 0;
+        final HSSFRow row = sheet.createRow(rowNum);
+        rowNum++;
+        POIUtil.setTitle(wb, row, title);
+        POIUtil.setTitleValuesByObj(exportList, sheet, values, rowNum, 3);
 
-                rowStart++;
-                int i = cellStart;
-                for (String field : exportField) {
-                    cell = row.createCell(i);
-                    try {
-                        final Method m = getGetMethod(o.getClass(), field, "get");
-                        cell.setCellValue(StringUtils.ifNull(m != null ? m.invoke(o, new Object[0]) : ""));
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                    i++;
-                }
-            }
-
-            autoSizeColumn(sheet, cellStart, exportField.length);
-        }
+        return wb;
     }
 
     /**
-     * 处理map集合
-     *
-     * @param sheet
-     * @param data
-     * @param exportField
-     * @param rowStart
-     * @param cellStart
-     */
-    public final static void writeSheet(List<Map<String, Object>> data, String[] exportField, int rowStart, int cellStart, HSSFSheet sheet) {
-        if (!CollectionUtils.isEmpty(data) && exportField != null && exportField.length > 0) {
-            // 写数据
-            HSSFRow row = null;
-            HSSFCell cell = null;
-
-            for (Map<String, Object> m : data) {
-
-                // 写数据到Excel，逐行写
-                if ((row = sheet.getRow(rowStart)) == null) {
-                    continue;
-                }
-
-                rowStart++;
-                int i = cellStart;
-                for (String valStr : exportField) {
-                    cell = row.createCell(i);
-                    cell.setCellValue(StringUtils.ifNull(m.get(valStr)));
-                    i++;
-                }
-            }
-
-            autoSizeColumn(sheet, cellStart, exportField.length);
-        }
-    }
-
-    /**
-     * 2019年2月28日<br>
-     * 自动设置Excel列宽
-     *
-     * @param sheet
-     * @param cellStart  起始列
-     * @param cellLength 列长
-     */
-    public final static void autoSizeColumn(HSSFSheet sheet, int cellStart, int cellLength) {
-        // 设置列宽
-        for (int i = cellStart; i < cellLength; i++) {
-            sheet.autoSizeColumn((short) i);
-        }
-    }
-
-    /**
-     * 2019年2月28日<br>
-     * 设置单元格的值
+     * 设置多表头
      *
      * @param sheet
      * @param rowNum  行号
      * @param cellNum 列号
-     * @param value   值
-     * @param align   -1:居左，0-居中，1-居右
+     * @param title   表头数组
+     * @param headNum 表头对应的坐标
+     * @author zgr
+     * @创建时间：2019年1月21日 @param wb
      */
-    public final static void setCellValue(HSSFSheet sheet, int rowNum, int cellNum, String value) {
-        final HSSFRow row = sheet.getRow(rowNum);
-        final HSSFCell cell = row.getCell(cellNum);
-        cell.setCellValue(value);
+    public static void setTitles(HSSFWorkbook wb, HSSFSheet sheet, int rowNum, int cellNum, String[] title,
+                                 String[] headNum) {
+        if (title != null && title.length > 0) {
+            // 创建居中样式
+            HSSFFont headfont = wb.createFont();
+            headfont.setFontName("宋体");
+            // headfont.setFontHeightInPoints((short) 22);// 字体大小
+            final HSSFCellStyle headstyle = wb.createCellStyle();
+            headstyle.setFont(headfont);
+            headstyle.setAlignment(HSSFCellStyle.ALIGN_CENTER);// 左右居中
+            headstyle.setVerticalAlignment(HSSFCellStyle.VERTICAL_CENTER);// 上下居中
+            headstyle.setLocked(true);
+
+            HSSFRow row = sheet.createRow(rowNum);
+            HSSFCell cell = null;
+            for (String t : title) {
+                cell = row.createCell(cellNum);
+                cellNum++;
+                cell.setCellValue(t);
+                cell.setCellStyle(headstyle);
+            }
+
+            if (headNum != null && headNum.length > 0) {
+                for (int i = 0; i < headNum.length; i++) {// 合并单元格
+                    String[] temp = headNum[i].split(",");
+                    Integer startrow = Integer.parseInt(temp[0]);
+                    Integer overrow = Integer.parseInt(temp[1]);
+                    Integer startcol = Integer.parseInt(temp[2]);
+                    Integer overcol = Integer.parseInt(temp[3]);
+                    sheet.addMergedRegion(new CellRangeAddress(startrow, overrow, startcol, overcol));
+                }
+            }
+        }
+
+    }
+
+    /**
+     * @param wb
+     * @param exportList 查询到的数据
+     * @param sheet
+     * @param values
+     * @param rowNum
+     * @param dateForm   * @param exportList
+     *                   *
+     *                   * @param sheetname
+     *                   *            表名
+     *                   * @param title
+     *                   *            抬头名
+     *                   * @param values
+     *                   *            数据名
+     */
+    public static void setTitleValuesByObjWb(HSSFWorkbook wb, List<?> exportList, HSSFSheet sheet, String[] values, int rowNum,
+                                             Integer dateForm) {
+        if (!CollectionUtils.isEmpty(exportList) && values != null && values.length > 0) {
+            HSSFRow row = null;
+            HSSFCell cell = null;
+            HSSFCellStyle cellStyle2 = wb.createCellStyle();
+            HSSFDataFormat format = wb.createDataFormat();
+            cellStyle2.setDataFormat(format.getFormat("@"));
+
+            for (Object object : exportList) {
+
+                // 写数据到Excel，逐行写
+                row = sheet.createRow(rowNum);
+                rowNum++;
+                int i = 0;
+                for (String valStr : values) {
+                    cell = row.createCell(i);
+                    cell.setCellStyle(cellStyle2);
+                    cell.setCellType(HSSFCell.CELL_TYPE_STRING);
+                    Object o = null;
+                    try {
+                        o = PropertyUtils.getProperty(object, valStr);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+
+                    if (o != null) {
+                        if (o instanceof Date) {
+                            cell.setCellValue(MyDateUtil.getDateTime((Date) o, dateForm == null ? 13 : dateForm));
+                        } else if (o instanceof Double) {
+                            Double value = (Double) o;
+                            BigDecimal bd1 = new BigDecimal(Double.toString(value));
+                            cell.setCellValue(bd1.toPlainString().replaceAll("0+?$", "").replaceAll("[.]$", ""));
+                        } else {
+                            cell.setCellValue(StringUtils.ifNull(o));
+                        }
+                    } else {
+                        cell.setCellValue("");
+                    }
+                    i++;
+                }
+
+            }
+        }
     }
 }
