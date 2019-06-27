@@ -35,9 +35,9 @@ public class JobUtil {
 	 * @param key
 	 * @return
 	 */
-	public final static String jobStatus(String key) {
-		return RedisUtils.getByKey(key);
-	}
+//	public final static String jobStatus(String key) {
+//		return RedisUtils.getByKey(key);
+//	}
 
 	/**
 	 * 2018年7月28日<br>
@@ -46,21 +46,21 @@ public class JobUtil {
 	 * @param key
 	 * @return true-已经运行，false-没有运行
 	 */
-	public final static boolean jobStart(String key) {
-		try {
-			final String value = jobStatus(key);
-			if (value == null || "end".equals(value)) {
-				// 有效期一个小时（一个任务执行一个小时应该够了）
-				RedisUtils.add(key, "start", 60 * 60 * 1000L);
-				return false;
-			} else if ("start".equals(value)) {
-				return true;
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		return false;
-	}
+//	public final static boolean jobStart(String key) {
+//		try {
+//			final String value = jobStatus(key);
+//			if (value == null || "end".equals(value)) {
+//				// 有效期一个小时（一个任务执行一个小时应该够了）
+//				RedisUtils.add(key, "start", 60 * 60 * 1000L);
+//				return false;
+//			} else if ("start".equals(value)) {
+//				return true;
+//			}
+//		} catch (Exception e) {
+//			e.printStackTrace();
+//		}
+//		return false;
+//	}
 
 	/**
 	 * 2018年7月28日<br>
@@ -68,11 +68,11 @@ public class JobUtil {
 	 * 
 	 * @param key
 	 */
-	public final static void jobEnd(String key) {
-		try {
-			RedisUtils.add(key, "end", 60 * 60 * 1000L);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
+//	public final static void jobEnd(String key) {
+//		try {
+//			RedisUtils.add(key, "end", 60 * 60 * 1000L);
+//		} catch (Exception e) {
+//			e.printStackTrace();
+//		}
+//	}
 }
